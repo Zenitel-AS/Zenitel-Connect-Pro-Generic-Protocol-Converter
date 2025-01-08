@@ -1,0 +1,373 @@
+[
+    {
+        "id": "8f817c74f975ed07",
+        "type": "tab",
+        "label": "Generic protocol converter",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "c942af34577875bb",
+        "type": "switch",
+        "z": "8f817c74f975ed07",
+        "name": "Switch",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "cont",
+                "v": "IF",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "CF",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "DK",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "OD",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "CV",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 5,
+        "x": 610,
+        "y": 400,
+        "wires": [
+            [
+                "363a55f47cc2464f"
+            ],
+            [
+                "0898610c1fc91583"
+            ],
+            [
+                "a2ca5e029e67a56b"
+            ],
+            [
+                "f54bf11bf7bc2773"
+            ],
+            [
+                "f7198065b78e373a"
+            ]
+        ]
+    },
+    {
+        "id": "363a55f47cc2464f",
+        "type": "function",
+        "z": "8f817c74f975ed07",
+        "name": "Call",
+        "func": "// Extract the payload\nconst v = msg.payload;\nconst substrings = v.split(' ');  // Split the string into an array\n\n// Initialize variables\nconst cmd = substrings[0];  // The command part, i.e., \"IF\"\nlet dira = \"\";\nlet dirb = \"\";\n\n// Check if the command is \"IF\"\nif (cmd === \"IF\" && substrings.length >= 3) {\n    // Extract directory numbers DIRA and DIRB from the input string\n    dira = substrings[1].trim();  // First directory number, trim any leading/trailing spaces\n    dirb = substrings[2].trim();  // Second directory number, trim any leading/trailing spaces\n\n    // Create the message payload for the setup action\n    msg = {\n        topic: 'com.zenitel.calls.post',\n        payload: {\n            'from_dirno': dira,\n            'to_dirno': dirb,\n            'action': 'setup',\n            'verbose': false\n        }\n    };\n} else {\n    // Handle invalid or missing parameters\n    msg.payload = \"Error\";\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 870,
+        "y": 280,
+        "wires": [
+            [
+                "3c511aab5404f995"
+            ]
+        ]
+    },
+    {
+        "id": "0898610c1fc91583",
+        "type": "function",
+        "z": "8f817c74f975ed07",
+        "name": "CancelCall",
+        "func": "// Extract and trim the payload input\nconst v = msg.payload.trim();\n\n// Split the string by spaces into an array\nconst substrings = v.split(' ');\n\n// Extract the command and directory number\nconst cmd = substrings[0];\nlet dira = \"\";\n\nlet lastCmd = flow.get(\"LastCommand\");\n\n// Check if the command is \"CF\"\nif (cmd === \"CF\" && substrings.length >= 2) {\n    // Extract and trim the directory number (DIRA)\n    dira = substrings[1].trim();\n\n    // Create the message payload for the delete action\n    msg = {\n        topic: 'com.zenitel.calls.delete',\n        payload: {\n            'dirno': dira  // Set DIRA in the payload\n        }\n    };\n\n    // Update the last command in the flow\n    flow.set(\"LastCommand\", msg.payload);\n} else {\n    // Handle invalid command or missing directory number\n    msg = {\n        topic: 'debugText',\n        payload: {\n            'Text': 'Error: Invalid command or missing parameters'\n        }\n    };\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 890,
+        "y": 340,
+        "wires": [
+            [
+                "2dec83c22bfa151e"
+            ]
+        ]
+    },
+    {
+        "id": "a2ca5e029e67a56b",
+        "type": "function",
+        "z": "8f817c74f975ed07",
+        "name": "DeviceKeyPress",
+        "func": "// function for DeviceKeyPress\nvar v = msg.payload.trim();  // Trim any leading/trailing spaces or newlines\nlet substrings = v.split(' ');  // Split the string by spaces\nlet cmd = substrings[0];  // Extract the command part (\"DK\")\nlet dira = \"\";\nlet keyIdentifier = \"\";\nlet keyAction = \"\";\n\nif (cmd == \"DK\") {\n    // Ensure correct format and extract parameters\n    if (substrings.length >= 4) {\n        dira = substrings[1];  // Extract the directory number (DIRA) directly\n        keyIdentifier = substrings[2];  // Extract the key identifier\n        keyAction = substrings[3].trim();  // Extract and trim the key action\n\n        if (flow.get(\"LastCommand\") != msg.payload) {\n            flow.set(\"LastCommand\", msg.payload);\n\n            var newMsg = {\n                topic: 'com.zenitel.devices.device.key.post',\n                payload: {\n                    'dirno': dira,\n                    'id': keyIdentifier,\n                    'edge': keyAction,  // Action: tap, press, or release\n                }\n            };\n            node.send(newMsg);\n        } else {\n            msg = {\n                topic: 'debugText',\n                payload: {\n                    'Text': 'Command Skipped - Retransmission'\n                }\n            };\n        }\n    } else {\n        msg.payload = \"Error: Invalid DK command format\";\n    }\n} else {\n    msg = null;  // Handle non-DK commands or invalid input\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 400,
+        "wires": [
+            [
+                "2f0a16109398a27b"
+            ]
+        ]
+    },
+    {
+        "id": "f54bf11bf7bc2773",
+        "type": "function",
+        "z": "8f817c74f975ed07",
+        "name": "OpenDoor",
+        "func": "// Trim the input and split it by spaces\nconst command = msg.payload.trim();\nconst substrings = command.split(' ');\n\n// Extract the command part (e.g., \"OD\")\nconst cmd = substrings[0];\nlet from_dirno = \"\";\n\n// Check if the command is \"OD\"\nif (cmd === \"OD\" && substrings.length >= 2) {\n    // Extract and trim the directory number (from_dirno)\n    from_dirno = substrings[1].trim();\n\n    // Construct the message for the POST request\n    const newMsg = {\n        topic: 'com.zenitel.calls.call.open_door.post',\n        payload: {\n            'from_dirno': from_dirno\n        }\n    };\n\n    // Send the new message\n    node.send(newMsg);\n} else {\n    // Return a default error message for invalid or missing command\n    msg = {\n        topic: 'debugText',\n        payload: {\n            'Text': 'Error: Invalid command or missing parameters'\n        }\n    };\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 890,
+        "y": 460,
+        "wires": [
+            [
+                "f8fe1451580a6d8a"
+            ]
+        ]
+    },
+    {
+        "id": "f7198065b78e373a",
+        "type": "function",
+        "z": "8f817c74f975ed07",
+        "name": "CV - command",
+        "func": "// Check if the PlatformVersion is set in the flow\nconst platformVersion = flow.get(\"PlatformVersion\");\n\nif (platformVersion) {\n    // If PlatformVersion is set, return it\n    msg.payload = platformVersion;\n    return msg;\n}\n\n// Trim the input command from the payload\nconst command = msg.payload.trim();  \n\n// Check if the command is \"CV\"\nif (command === \"CV\") {\n    msg.payload = {};  // Set payload as an empty object\n    msg.topic = 'com.zenitel.system.platform.version';  // Set the topic for platform version\n    return msg;\n} else {\n    // Handle invalid command\n    msg.payload = { error: 'Invalid command' };  // Provide a descriptive error message\n    msg.statusCode = 400;  // Set HTTP status code to 400 (Bad Request)\n    return msg;\n}\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 520,
+        "wires": [
+            [
+                "6787182b78604817"
+            ]
+        ]
+    },
+    {
+        "id": "3c511aab5404f995",
+        "type": "wamp call",
+        "z": "8f817c74f975ed07",
+        "router": "0da727c664b1f238",
+        "procedure": "com.zenitel.calls.post",
+        "name": "com.zenitel.calls.post",
+        "x": 1580,
+        "y": 280,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "2dec83c22bfa151e",
+        "type": "wamp call",
+        "z": "8f817c74f975ed07",
+        "router": "0da727c664b1f238",
+        "procedure": "com.zenitel.calls.delete",
+        "name": "com.zenitel.calls.delete",
+        "x": 1590,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "2f0a16109398a27b",
+        "type": "wamp call",
+        "z": "8f817c74f975ed07",
+        "router": "0da727c664b1f238",
+        "procedure": "com.zenitel.devices.device.key.post",
+        "name": "com.zenitel.devices.device.key.post",
+        "x": 1620,
+        "y": 400,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f8fe1451580a6d8a",
+        "type": "wamp call",
+        "z": "8f817c74f975ed07",
+        "router": "0da727c664b1f238",
+        "procedure": "com.zenitel.calls.call.open_door.post",
+        "name": "com.zenitel.calls.call.open_door.post",
+        "x": 1630,
+        "y": 460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "6787182b78604817",
+        "type": "wamp call",
+        "z": "8f817c74f975ed07",
+        "router": "0da727c664b1f238",
+        "procedure": "com.zenitel.system.platform.version",
+        "name": "com.zenitel.system.platform.version",
+        "x": 1620,
+        "y": 520,
+        "wires": [
+            [
+                "923877a7eacef8ab"
+            ]
+        ]
+    },
+    {
+        "id": "ab644118238d48e2",
+        "type": "tcp in",
+        "z": "8f817c74f975ed07",
+        "name": "TCP listen on port 4711",
+        "server": "server",
+        "host": "",
+        "port": "4711",
+        "datamode": "stream",
+        "datatype": "utf8",
+        "newline": "",
+        "topic": "",
+        "trim": false,
+        "base64": false,
+        "tls": "",
+        "x": 320,
+        "y": 400,
+        "wires": [
+            [
+                "c942af34577875bb"
+            ]
+        ]
+    },
+    {
+        "id": "cd775a0302c6fb10",
+        "type": "wamp in",
+        "z": "8f817c74f975ed07",
+        "role": "subscriber",
+        "router": "0da727c664b1f238",
+        "topic": "com.zenitel.call",
+        "name": "Subscribe to calls",
+        "x": 200,
+        "y": 720,
+        "wires": [
+            [
+                "d9e3b934755a85d8"
+            ]
+        ]
+    },
+    {
+        "id": "d9e3b934755a85d8",
+        "type": "function",
+        "z": "8f817c74f975ed07",
+        "name": "Handle Call Details",
+        "func": "var txt = \"\";\nvar state = msg.payload.args[0][\"state\"];\nvar reason = msg.payload.args[0][\"reason\"];\nvar call_type = msg.payload.args[0][\"call_type\"];\nvar from_dirno = msg.payload.args[0][\"from_dirno\"];\nvar to_dirno = msg.payload.args[0][\"to_dirno\"];\nvar to_dirno_current = msg.payload.args[0][\"to_dirno_current\"];\ntxt = \"CI \"+state +\" \"+ reason +\" \"+ call_type +\" \"+ from_dirno +\" \"+ to_dirno +\" \"+ to_dirno_current +\"\\r\\n\";\nmsg.payload=txt;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 720,
+        "wires": [
+            [
+                "ba8c57bd019a1aed"
+            ]
+        ]
+    },
+    {
+        "id": "e0746cb7186e6337",
+        "type": "wamp in",
+        "z": "8f817c74f975ed07",
+        "role": "subscriber",
+        "router": "0da727c664b1f238",
+        "topic": "com.zenitel.system.open_door",
+        "name": "Subscribe to door opening",
+        "x": 230,
+        "y": 800,
+        "wires": [
+            [
+                "19dc287836f6331d"
+            ]
+        ]
+    },
+    {
+        "id": "19dc287836f6331d",
+        "type": "function",
+        "z": "8f817c74f975ed07",
+        "name": "Handle door opening",
+        "func": "var fromDirNo = msg.payload.args[0][\"from_dirno\"];\nvar doorDirNo = msg.payload.args[0][\"door_dirno\"];\n\n\nvar txt = \"DO \"+fromDirNo+\" \"+ doorDirNo +\"\\r\\n\";\n\nmsg.payload = txt;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 800,
+        "wires": [
+            [
+                "ba8c57bd019a1aed"
+            ]
+        ]
+    },
+    {
+        "id": "ba8c57bd019a1aed",
+        "type": "tcp out",
+        "z": "8f817c74f975ed07",
+        "name": "TCP out",
+        "host": "",
+        "port": "",
+        "beserver": "reply",
+        "base64": false,
+        "end": false,
+        "tls": "",
+        "x": 1300,
+        "y": 740,
+        "wires": []
+    },
+    {
+        "id": "923877a7eacef8ab",
+        "type": "function",
+        "z": "8f817c74f975ed07",
+        "name": "Handle Platform Version",
+        "func": "var txt=\"\";\nvar version=msg.payload[\"version\"];\ntxt=\"DataLink established, platform version: \"+version+\"\\r\\n\";\nmsg.payload=txt;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1610,
+        "y": 600,
+        "wires": [
+            [
+                "ba8c57bd019a1aed"
+            ]
+        ]
+    },
+    {
+        "id": "0da727c664b1f238",
+        "type": "wamp-client",
+        "address": "",
+        "realm": "",
+        "authId": "",
+        "password": "",
+        "name": "Zenitel Connect"
+    }
+]
